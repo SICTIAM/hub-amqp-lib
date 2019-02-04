@@ -51,7 +51,15 @@ lazy val root = (project in file("."))
     ),
     libraryDependencies ++= Seq(
       scalaTest % Test,
-      "org.bitbucket.hub-sictiam" % "hub-amqp-lib" % "0.1.1-SNAPSHOT"
+      logbackClassic % Test,
+      jodaTime,
+      typesafeConfig,
+      playJson,
+      scalaLogging,
+      //      rabbitmqClient,
+      jenaLibs,
+      alpakkaAmqp,
+      akkaStreamTestkit % Test
     )
   )
 
