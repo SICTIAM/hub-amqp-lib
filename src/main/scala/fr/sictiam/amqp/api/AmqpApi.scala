@@ -15,12 +15,14 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+
 package fr.sictiam.amqp.api
 
 import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.alpakka.amqp._
+import fr.sictiam.common.GenericService
 
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,7 +32,18 @@ import scala.concurrent.{ExecutionContext, Future}
   * Date: 2019-01-30
   */
 
-trait AmqpGenericAgent extends GenericService {
+trait AmqpConfiguration {
+  lazy val user: String = AmqpClientConfiguration.user
+  lazy val pwd: String = AmqpClientConfiguration.pwd
+  lazy val host: String = AmqpClientConfiguration.host
+  lazy val port: Int = AmqpClientConfiguration.port
+  lazy val durable: Boolean = AmqpClientConfiguration.durable
+  lazy val fairDispatch: Boolean = AmqpClientConfiguration.fairDispatch
+  lazy val prefetchCount: Int = AmqpClientConfiguration.prefetchCount
+  lazy val timeout: Int = AmqpClientConfiguration.timeout
+}
+
+trait AmqpGenericAgent extends GenericService with AmqpConfiguration {
 
   val serviceName: String
 
@@ -38,31 +51,17 @@ trait AmqpGenericAgent extends GenericService {
   implicit val materializer: ActorMaterializer
   implicit val ec: ExecutionContext
 
-  lazy val user: String = AmqpConfiguration.user
-  lazy val pwd: String = AmqpConfiguration.pwd
-  lazy val host: String = AmqpConfiguration.host
-  lazy val port: Int = AmqpConfiguration.port
-  lazy val durable: Boolean = AmqpConfiguration.durable
-  lazy val fairDispatch: Boolean = AmqpConfiguration.fairDispatch
-  lazy val prefetchCount: Int = AmqpConfiguration.prefetchCount
-  lazy val timeout: Int = AmqpConfiguration.timeout
-
-  lazy val queueName: String = s"$serviceName-queue-" + System.currentTimeMillis()
-  lazy val queueDeclaration = QueueDeclaration(queueName).withDurable(durable)
-
   // use a list of host/port pairs where one is normally invalid, but it should still work as expected,
   val connectionProvider = AmqpDetailsConnectionProvider("invalid", 5673)
     .withCredentials(AmqpCredentials(user, pwd))
     .withHostsAndPorts(immutable.Seq(host -> port))
-
-  //  val connectionProvider = AmqpUriConnectionProvider("amqp://admin:Pa55w0rd@localhost:5672")
 
   override def shutdown: Unit = {
     system.terminate()
   }
 }
 
-trait AmqpConsumer extends AmqpGenericAgent {
+trait AmqpGenericConsumer extends AmqpGenericAgent {
   /**
     * Consumes a fixed number of messages from the queue
     *
@@ -72,8 +71,7 @@ trait AmqpConsumer extends AmqpGenericAgent {
   def consume(nbMsgToTake: Long): Future[Seq[AmqpMessage]]
 }
 
-trait AmqpProducer extends AmqpGenericAgent {
-
+trait AmqpGenericProducer extends AmqpGenericAgent {
   /**
     * Publishes a message to the broker with the name of the queue to
     *
@@ -83,4 +81,15 @@ trait AmqpProducer extends AmqpGenericAgent {
   def publish(messages: Vector[AmqpMessage]): Future[Done]
 }
 
-trait AmqpServer extends AmqpConsumer with AmqpProducer
+trait NamedQueue extends AmqpGenericAgent {
+  val queueName: String
+  lazy val queueDeclaration = QueueDeclaration(queueName).withDurable(durable)
+  lazy val sourceSettings: AmqpSourceSettings = NamedQueueSourceSettings(connectionProvider, queueName).withDeclaration(queueDeclaration)
+}
+
+trait Exchange extends AmqpGenericAgent {
+  val exchangeName: String
+  val exchangeType: ExchangeTypes.ExchangeTypeVal
+  lazy val exchangeDeclaration = ExchangeDeclaration(exchangeName, exchangeType.label)
+  lazy val sourceSettings: AmqpSourceSettings = TemporaryQueueSourceSettings(connectionProvider, exchangeName).withDeclaration(exchangeDeclaration)
+}

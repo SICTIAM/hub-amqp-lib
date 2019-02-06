@@ -15,15 +15,13 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package fr.sictiam.amqp.api
+package fr.sictiam.amqp.api.basic
 
-import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.stream.alpakka.amqp._
-import akka.stream.alpakka.amqp.scaladsl.{AmqpSink, AmqpSource}
-import akka.stream.scaladsl.{Sink, Source}
-import akka.util.ByteString
+import akka.stream.alpakka.amqp.scaladsl.AmqpSource
+import akka.stream.scaladsl.Sink
+import fr.sictiam.amqp.api.{AmqpGenericConsumer, AmqpMessage, NamedQueue}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -32,28 +30,13 @@ import scala.concurrent.{ExecutionContext, Future}
   * Date: 2019-01-30
   */
 
-class AmqpSimpleServer(val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpServer {
+class AmqpBasicConsumer(val queueName: String, val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericConsumer with NamedQueue {
 
   override def init: Unit = {}
 
-  /**
-    * Publishes a message to the broker with the name of the queue to
-    *
-    * @param messages
-    * @return
-    */
-  override def publish(messages: Vector[AmqpMessage]): Future[Done] = {
-    val amqpSink = AmqpSink.simple(
-      AmqpSinkSettings(connectionProvider)
-        .withRoutingKey(queueName)
-        .withDeclaration(queueDeclaration)
-    )
-    Source(messages).map(s => ByteString(s.toString)).runWith(amqpSink)
-  }
-
   override def consume(nbMsgToTake: Long): Future[Seq[AmqpMessage]] = {
     val amqpSource = AmqpSource.atMostOnceSource(
-      NamedQueueSourceSettings(connectionProvider, queueName).withDeclaration(queueDeclaration),
+      sourceSettings,
       bufferSize = prefetchCount
     )
     val result = amqpSource.take(nbMsgToTake).runWith(Sink.seq)

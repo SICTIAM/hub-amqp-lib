@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package fr.sictiam.amqp.api
+package fr.sictiam.common
 
 import com.typesafe.scalalogging.LazyLogging
 

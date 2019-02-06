@@ -15,10 +15,12 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package fr.sictiam.amqp
+package fr.sictiam.amqp.exchange
 
 import akka.Done
-import fr.sictiam.amqp.api.{AmqpMessage, AmqpSimpleServer}
+import fr.sictiam.amqp.AmqpSpec
+import fr.sictiam.amqp.api.exchange.AmqpExchangeProducer
+import fr.sictiam.amqp.api.{AmqpMessage, ExchangeTypes}
 import play.api.libs.json.{JsString, JsValue}
 
 import scala.concurrent.duration._
@@ -28,29 +30,22 @@ import scala.concurrent.duration._
   * Date: 2019-02-01
   */
 
-class AmqpSimpleServerSpec extends AmqpSpec {
+class AmqpExchangeProducerSpec extends AmqpSpec {
   val headers = Map.empty[String, JsValue]
 
   override implicit val patienceConfig = PatienceConfig(10.seconds)
 
-  "The AmqpSimpleServer" should {
-    val server = new AmqpSimpleServer("serverTest")
+  "The AmqpExchangeProducer" should {
+    val exName: String = "testExchange"
+
+    val producer = new AmqpExchangeProducer(exName, ExchangeTypes.Fanout, "producerTest")
     val messages = Vector(
       AmqpMessage(headers, JsString("One")),
       AmqpMessage(headers, JsString("Two")),
       AmqpMessage(headers, JsString("Three"))
     )
     "publish a message without error" in {
-
-      server.publish(messages).futureValue shouldBe Done
-    }
-
-    "receive a message without error" in {
-      val results = server.consume(3).futureValue
-      results.size shouldEqual 3
-      results.map { msg =>
-        msg.body.as[String]
-      } shouldBe Seq("One", "Two", "Three")
+      producer.publish(messages).futureValue shouldBe Done
     }
   }
 }

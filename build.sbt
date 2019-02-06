@@ -11,7 +11,7 @@ lazy val root = (project in file("."))
     name := "hub-amqp-lib",
     homepage := Some(url("http://www.sictiam.fr")),
     pomIncludeRepository := { _ => false },
-    licenses := Seq("Apache 2.0" -> url("https://opensource.org/licenses/Apache-2.0")),
+    licenses := Seq("AGPL 3.0" -> url("https://opensource.org/licenses/AGPL-3.0")),
     scmInfo := Some(
       ScmInfo(
         url("https://bitbucket.org/hub-sictiam/hub-amqp-lib.git"),

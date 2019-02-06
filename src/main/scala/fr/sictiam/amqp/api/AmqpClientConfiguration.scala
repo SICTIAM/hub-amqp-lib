@@ -24,7 +24,7 @@ import com.typesafe.config.{Config, ConfigFactory}
   * Date: 2019-01-30
   */
 
-object AmqpConfiguration {
+object AmqpClientConfiguration {
 
   lazy val conf: Config = Option(ConfigFactory.load().getConfig("amqp")).getOrElse(ConfigFactory.empty())
   lazy val user: String = Option(conf.getString("user")).getOrElse("admin")
