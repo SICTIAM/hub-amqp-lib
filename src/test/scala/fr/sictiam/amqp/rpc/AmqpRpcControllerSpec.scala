@@ -21,7 +21,7 @@ import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
 import akka.util.ByteString
 import fr.sictiam.amqp.AmqpSpec
 import fr.sictiam.amqp.api.AmqpMessage
-import fr.sictiam.amqp.api.rpc.AmqpRpcServer
+import fr.sictiam.amqp.api.rpc.AmqpRpcController
 import play.api.libs.json.{JsString, JsValue}
 
 import scala.collection.mutable
@@ -33,13 +33,13 @@ import scala.concurrent.duration._
   * Date: 2019-02-25
   */
 
-class AmqpRpcServerSpec extends AmqpSpec {
+class AmqpRpcControllerSpec extends AmqpSpec {
 
   val headers = Map.empty[String, JsValue]
 
   override implicit val patienceConfig = PatienceConfig(10.seconds)
 
-  "The AmqpRpcServer" should {
+  "The AmqpRpcController" should {
 
     val messages = Vector(
       AmqpMessage(headers, JsString("One")),
@@ -47,12 +47,12 @@ class AmqpRpcServerSpec extends AmqpSpec {
       AmqpMessage(headers, JsString("Three"))
     )
 
-    val node1 = new AmqpRpcServer("node1Queue", "rpcNode1Test") {
+    val node1 = new AmqpRpcController("node1Queue", "rpcNode1Test") {
       override def onCommand(msg: IncomingMessage): OutgoingMessage = ???
     }
 
     val outputBuffer = mutable.Buffer[String]()
-    val node2 = new AmqpRpcServer("node2Queue", "rpcNode2Test") {
+    val node2 = new AmqpRpcController("node2Queue", "rpcNode2Test") {
       override def onCommand(msg: IncomingMessage): OutgoingMessage = {
         outputBuffer += msg.bytes.utf8String
         OutgoingMessage(ByteString(" OK"), false, false).withProperties(msg.properties)
