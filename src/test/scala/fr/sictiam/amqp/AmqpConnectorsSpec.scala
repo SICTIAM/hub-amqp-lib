@@ -9,7 +9,7 @@ import java.net.ConnectException
 import akka.Done
 import akka.stream._
 import akka.stream.alpakka.amqp._
-import akka.stream.scaladsl.{GraphDSL, Keep, Merge, Sink, Source}
+import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Merge, Sink, Source}
 import akka.stream.testkit.scaladsl.TestSink
 import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import akka.util.ByteString
@@ -18,8 +18,8 @@ import fr.sictiam.amqp.AmqpSpec
 import fr.sictiam.amqp.api.AmqpClientConfiguration
 
 import scala.collection.immutable
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 /**
   * Needs a local running AMQP server on the default port with no password.
@@ -80,20 +80,24 @@ class AmqpConnectorsSpec extends AmqpSpec {
       val queueName = "amqp-conn-it-spec-rpc-queue-" + System.currentTimeMillis()
       val queueDeclaration = QueueDeclaration(queueName)
 
-      val amqpRpcFlow = AmqpRpcFlow.simple(
+      // declare a simple RPC flow with a sink
+      val amqpRpcFlow: Flow[ByteString, ByteString, Future[String]] = AmqpRpcFlow.simple(
         AmqpSinkSettings(connectionProvider)
           .withRoutingKey(queueName)
           .withDeclaration(queueDeclaration),
         2
       )
 
+      // declare a basic consumer
       val amqpSource = AmqpSource.atMostOnceSource(
         NamedQueueSourceSettings(connectionProvider, queueName),
         bufferSize = 1
       )
 
       val input = Vector("one", "two", "three", "four", "five")
-      val (rpcQueueF, probe) =
+
+      // Send messages to RPC Queue and get a tuple made of (future, probe) in return to be notified when a response is coming
+      val (rpcQueueF: Future[String], probe: TestSubscriber.Probe[ByteString]) =
         Source(input).map(s => ByteString(s)).viaMat(amqpRpcFlow)(Keep.right).toMat(TestSink.probe)(Keep.both).run
       rpcQueueF.futureValue
 
@@ -101,6 +105,7 @@ class AmqpConnectorsSpec extends AmqpSpec {
         AmqpReplyToSinkSettings(connectionProvider)
       )
 
+      // simulate the response of the service wrting to the reply queue with 2 outgoing messages
       amqpSource
         .mapConcat { b =>
           List(
@@ -110,6 +115,7 @@ class AmqpConnectorsSpec extends AmqpSpec {
         }
         .runWith(amqpSink)
 
+      // take messages from the probe
       probe
         .request(10)
         .expectNextUnorderedN(input.flatMap(s => List(ByteString(s.concat("a")), ByteString(s.concat("aa")))))
@@ -314,6 +320,10 @@ class AmqpConnectorsSpec extends AmqpSpec {
 
       val input = Vector("one", "two", "three", "four", "five")
 
+
+      /**
+        * Create a committable sink which returns
+        */
       val amqpRpcFlow = AmqpRpcFlow.committableFlow(
         AmqpSinkSettings(connectionProvider)
           .withRoutingKey(queueName)

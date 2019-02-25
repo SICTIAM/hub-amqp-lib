@@ -31,7 +31,9 @@ import scala.concurrent.{ExecutionContext, Future}
   * Date: 2019-01-30
   */
 
-class AmqpSingleTopicConsumer(val exchangeName: String, val exchangeType: ExchangeTypes.ExchangeTypeVal, val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericAgent with Exchange {
+class AmqpSingleTopicConsumer(val exchangeName: String, val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericAgent with Exchange {
+
+  override val exchangeType = ExchangeTypes.Topic
 
   override def init: Unit = {}
 

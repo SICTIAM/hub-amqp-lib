@@ -18,8 +18,8 @@
 package fr.sictiam.amqp.exchange
 
 import fr.sictiam.amqp.AmqpSpec
+import fr.sictiam.amqp.api.AmqpMessage
 import fr.sictiam.amqp.api.exchange.{AmqpSingleTopicConsumer, AmqpSingleTopicProducer}
-import fr.sictiam.amqp.api.{AmqpMessage, ExchangeTypes}
 import play.api.libs.json.{JsString, JsValue}
 
 import scala.concurrent.duration._
@@ -38,7 +38,7 @@ class AmqpSingleTopicConsumerSpec extends AmqpSpec {
     val exName = "testExchange"
     val topic = "graph.create.triples"
 
-    val producer = new AmqpSingleTopicProducer(exName, ExchangeTypes.Fanout, "producerTest")
+    val producer = new AmqpSingleTopicProducer(exName, "producerTest")
 
     val messages = Vector(
       AmqpMessage(headers, JsString("One")),
@@ -48,7 +48,7 @@ class AmqpSingleTopicConsumerSpec extends AmqpSpec {
 
     producer.publish(topic, messages)
 
-    val consumer = new AmqpSingleTopicConsumer(exName, ExchangeTypes.Fanout, "consumerTest")
+    val consumer = new AmqpSingleTopicConsumer(exName, "consumerTest")
 
     "receive a message without error" in {
       val results = consumer.consume(topic, 3).futureValue

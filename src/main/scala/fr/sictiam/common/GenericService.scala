@@ -25,6 +25,7 @@ import com.typesafe.scalalogging.LazyLogging
   */
 
 trait GenericService extends LazyLogging {
+
   def init
 
   def shutdown

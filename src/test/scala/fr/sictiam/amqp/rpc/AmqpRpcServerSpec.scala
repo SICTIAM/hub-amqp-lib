@@ -15,39 +15,55 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package fr.sictiam.amqp.exchange
+package fr.sictiam.amqp.rpc
 
-import akka.Done
+import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
+import akka.util.ByteString
 import fr.sictiam.amqp.AmqpSpec
 import fr.sictiam.amqp.api.AmqpMessage
-import fr.sictiam.amqp.api.exchange.AmqpSingleTopicProducer
+import fr.sictiam.amqp.api.rpc.AmqpRpcServer
 import play.api.libs.json.{JsString, JsValue}
 
+import scala.collection.mutable
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 /**
   * Created by Nicolas DELAFORGE (nicolas.delaforge@mnemotix.com).
-  * Date: 2019-02-01
+  * Date: 2019-02-25
   */
 
-class AmqpSingleTopicProducerSpec extends AmqpSpec {
+class AmqpRpcServerSpec extends AmqpSpec {
+
   val headers = Map.empty[String, JsValue]
 
   override implicit val patienceConfig = PatienceConfig(10.seconds)
 
-  "The AmqpSingleTopicProducer" should {
+  "The AmqpRpcServer" should {
 
-    val exName = "testExchange"
-    val topic = "graph.create.triples"
-
-    val producer = new AmqpSingleTopicProducer(exName, "producerTest")
     val messages = Vector(
       AmqpMessage(headers, JsString("One")),
       AmqpMessage(headers, JsString("Two")),
       AmqpMessage(headers, JsString("Three"))
     )
-    "publish a message without error" in {
-      producer.publish(topic, messages).futureValue shouldBe Done
+
+    val node1 = new AmqpRpcServer("node1Queue", "rpcNode1Test") {
+      override def onCommand(msg: IncomingMessage): OutgoingMessage = ???
+    }
+
+    val outputBuffer = mutable.Buffer[String]()
+    val node2 = new AmqpRpcServer("node2Queue", "rpcNode2Test") {
+      override def onCommand(msg: IncomingMessage): OutgoingMessage = {
+        outputBuffer += msg.bytes.utf8String
+        OutgoingMessage(msg.bytes.concat(ByteString(" OK")), false, false).withProperties(msg.properties)
+      }
+    }
+
+    "send a command without error" in {
+      val futureResult = node1.sendCommand("node2Queue", messages)
+      node2.consume(10)
+      Await.result(futureResult, Duration.Inf)
+      outputBuffer shouldEqual messages.map(_.toString)
     }
   }
 }
