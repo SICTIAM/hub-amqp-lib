@@ -55,11 +55,11 @@ class AmqpRpcServerSpec extends AmqpSpec {
     val node2 = new AmqpRpcServer("node2Queue", "rpcNode2Test") {
       override def onCommand(msg: IncomingMessage): OutgoingMessage = {
         outputBuffer += msg.bytes.utf8String
-        OutgoingMessage(msg.bytes.concat(ByteString(" OK")), false, false).withProperties(msg.properties)
+        OutgoingMessage(ByteString(" OK"), false, false).withProperties(msg.properties)
       }
     }
 
-    "send a command without error" in {
+    "send a command, process it and write to reply queue without error" in {
       val futureResult = node1.sendCommand("node2Queue", messages)
       node2.consume(10)
       Await.result(futureResult, Duration.Inf)
