@@ -21,12 +21,12 @@ import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
 import akka.util.ByteString
 import fr.sictiam.amqp.AmqpSpec
 import fr.sictiam.amqp.api.AmqpMessage
-import fr.sictiam.amqp.api.rpc.AmqpRpcTopicController
+import fr.sictiam.amqp.api.rpc.AmqpRpcTopicServer
 import play.api.libs.json.{JsString, JsValue}
 
 import scala.collection.mutable
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 
 /**
@@ -34,13 +34,13 @@ import scala.concurrent.duration._
   * Date: 2019-02-25
   */
 
-class AmqpRpcTopicControllerSpec extends AmqpSpec {
+class AmqpRpcTopicServerSpec extends AmqpSpec {
 
   val headers = Map.empty[String, JsValue]
 
   override implicit val patienceConfig = PatienceConfig(10.seconds)
 
-  "The AmqpRpcTopicController" should {
+  "The AmqpRpcTopicServer" should {
 
     val messages = Vector(
       AmqpMessage(headers, JsString("One")),
@@ -51,24 +51,49 @@ class AmqpRpcTopicControllerSpec extends AmqpSpec {
     val outputBuffer2 = mutable.Buffer[String]()
     val topic = "graph.create.node"
 
-    val node1 = new AmqpRpcTopicController("testExchange", "rpcNode1Test") {
-      override def onCommand(msg: IncomingMessage): OutgoingMessage = ???
+    val node1 = new AmqpRpcTopicServer("testExchange", "rpcNode1Test") {
+
+      override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = ???
+
+      override def beforePublish(topic: String, messages: Vector[AmqpMessage]): Unit = {
+        println(s"Before publish")
+      }
+
+      override def afterPublish(topic: String, messages: Vector[AmqpMessage]): Unit = {
+        println(s"After publish")
+      }
+
+      override def beforeReply(msg: ByteString): Unit = {
+        println(s"Before reply")
+      }
+
+      override def afterReply(msg: ByteString): Unit = {
+        println(s"After reply")
+      }
+
+      override def onReply(msg: ByteString): Unit = {
+        println(s"Reply received: ${msg.utf8String}")
+      }
     }
 
-    val node2 = new AmqpRpcTopicController("testExchange", "rpcNode2Test") {
-      override def onCommand(msg: IncomingMessage): OutgoingMessage = {
+    val node2 = new AmqpRpcTopicServer("testExchange", "rpcNode2Test") {
+      override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
         println(s"Consummer1 message received : ${msg.bytes.utf8String}")
         outputBuffer1 += msg.bytes.utf8String
-        OutgoingMessage(ByteString("Reponse received from Consumer 1"), false, false).withProperties(msg.properties)
+        Future(OutgoingMessage(ByteString("Reponse received from Consumer 1"), false, false).withProperties(msg.properties))(ec)
       }
+
+      override def onReply(msg: ByteString): Unit = ???
     }
 
-    val node3 = new AmqpRpcTopicController("testExchange", "rpcNode3Test") {
-      override def onCommand(msg: IncomingMessage): OutgoingMessage = {
+    val node3 = new AmqpRpcTopicServer("testExchange", "rpcNode3Test") {
+      override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
         println(s"Consummer2 message received : ${msg.bytes.utf8String}")
         outputBuffer2 += msg.bytes.utf8String
-        OutgoingMessage(ByteString("Reponse received from Consumer 2"), false, false).withProperties(msg.properties)
+        Future(OutgoingMessage(ByteString("Reponse received from Consumer 2"), false, false).withProperties(msg.properties))(ec)
       }
+
+      override def onReply(msg: ByteString): Unit = ???
     }
     "receive a command message, process it and write back the response to sender" in {
       val futureResult = node1.publish(topic, messages)

@@ -22,6 +22,7 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.alpakka.amqp._
+import akka.util.ByteString
 import fr.sictiam.common.GenericService
 
 import scala.collection.immutable
@@ -59,6 +60,29 @@ trait AmqpGenericAgent extends GenericService with AmqpConfiguration {
   override def shutdown: Unit = {
     system.terminate()
   }
+}
+
+trait AmqpGenericRpcServer extends AmqpGenericAgent {
+
+  def publish(toQueueName: String, messages: Vector[AmqpMessage]): Future[Done]
+
+  def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage]
+
+  def onReply(msg: ByteString): Unit = {}
+
+  def beforePublish(topic: String, messages: Vector[AmqpMessage]): Unit = {}
+
+  def afterPublish(topic: String, messages: Vector[AmqpMessage]): Unit = {}
+
+  def onError(topic: String, messages: Vector[AmqpMessage], err: Throwable): Unit = {
+    logger.error(err.getMessage)
+    err.printStackTrace()
+  }
+
+  def beforeReply(msg: ByteString) = {}
+
+  def afterReply(msg: ByteString) = {}
+
 }
 
 trait AmqpGenericConsumer extends AmqpGenericAgent {

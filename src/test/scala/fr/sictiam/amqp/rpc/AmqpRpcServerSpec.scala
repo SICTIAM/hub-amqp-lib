@@ -21,25 +21,25 @@ import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
 import akka.util.ByteString
 import fr.sictiam.amqp.AmqpSpec
 import fr.sictiam.amqp.api.AmqpMessage
-import fr.sictiam.amqp.api.rpc.AmqpRpcController
+import fr.sictiam.amqp.api.rpc.AmqpRpcServer
 import play.api.libs.json.{JsString, JsValue}
 
 import scala.collection.mutable
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 /**
   * Created by Nicolas DELAFORGE (nicolas.delaforge@mnemotix.com).
   * Date: 2019-02-25
   */
 
-class AmqpRpcControllerSpec extends AmqpSpec {
+class AmqpRpcServerSpec extends AmqpSpec {
 
   val headers = Map.empty[String, JsValue]
 
   override implicit val patienceConfig = PatienceConfig(10.seconds)
 
-  "The AmqpRpcController" should {
+  "The AmqpRpcServer" should {
 
     val messages = Vector(
       AmqpMessage(headers, JsString("One")),
@@ -47,20 +47,24 @@ class AmqpRpcControllerSpec extends AmqpSpec {
       AmqpMessage(headers, JsString("Three"))
     )
 
-    val node1 = new AmqpRpcController("node1Queue", "rpcNode1Test") {
-      override def onCommand(msg: IncomingMessage): OutgoingMessage = ???
+    val node1 = new AmqpRpcServer("node1Queue", "rpcNode1Test") {
+      override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = ???
+
+      override def onReply(msg: ByteString): Unit = {
+        println(s"Reply received: ${msg.utf8String}")
+      }
     }
 
     val outputBuffer = mutable.Buffer[String]()
-    val node2 = new AmqpRpcController("node2Queue", "rpcNode2Test") {
-      override def onCommand(msg: IncomingMessage): OutgoingMessage = {
+    val node2 = new AmqpRpcServer("node2Queue", "rpcNode2Test") {
+      override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
         outputBuffer += msg.bytes.utf8String
-        OutgoingMessage(ByteString(" OK"), false, false).withProperties(msg.properties)
+        Future(OutgoingMessage(ByteString(" OK"), false, false).withProperties(msg.properties))(ec)
       }
     }
 
     "send a command, process it and write to reply queue without error" in {
-      val futureResult = node1.sendCommand("node2Queue", messages)
+      val futureResult = node1.publish("node2Queue", messages)
       node2.consume(10)
       Await.result(futureResult, Duration.Inf)
       outputBuffer shouldEqual messages.map(_.toString)

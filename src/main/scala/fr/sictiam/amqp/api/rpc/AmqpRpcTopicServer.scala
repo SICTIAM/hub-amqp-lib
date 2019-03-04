@@ -19,61 +19,68 @@ package fr.sictiam.amqp.api.rpc
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.stream._
+import akka.stream.ActorMaterializer
 import akka.stream.alpakka.amqp._
 import akka.stream.alpakka.amqp.scaladsl.{AmqpRpcFlow, AmqpSink, AmqpSource}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.util.ByteString
 import fr.sictiam.amqp.api._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /**
   * Created by Nicolas DELAFORGE (nicolas.delaforge@mnemotix.com).
-  * Date: 2019-02-20
+  * Date: 2019-02-25
   */
 
-abstract class AmqpRpcController(val queueName: String, val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericAgent with NamedQueue {
+abstract class AmqpRpcTopicServer(val exchangeName: String, val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericRpcServer with Exchange {
 
   override def init: Unit = {}
 
-  def sendCommand(toQueueName: String, messages: Vector[AmqpMessage]) = {
+  override val exchangeType: ExchangeTypes.ExchangeTypeVal = ExchangeTypes.Topic
 
-    val toQueueDeclaration = QueueDeclaration(toQueueName).withDurable(durable)
+  override def publish(topic: String, messages: Vector[AmqpMessage]) = {
 
-    // declare a simple RPC flow with a sink
+    // declare a RPC flow with a sink connected to an exchange
     val amqpRpcFlow: Flow[ByteString, ByteString, Future[String]] = AmqpRpcFlow.simple(
       AmqpSinkSettings(connectionProvider)
-        .withRoutingKey(toQueueName)
-        .withDeclaration(toQueueDeclaration),
+        .withExchange(exchangeName)
+        .withDeclaration(exchangeDeclaration)
+        .withRoutingKey(topic),
       1
     )
 
     // Declare a Sink for processing messages from reply queue
-    val resultSink = Sink.foreach[ByteString] { msg => println(msg.utf8String) }
+    val resultSink = Sink.foreach[ByteString] { msg =>
+      beforeReply(msg)
+      onReply(msg)
+      afterReply(msg)
+    }
+
+    beforePublish(topic, messages)
 
     // Send messages through the flow
     val (_, done: Future[Done]) = Source(messages).map(s => ByteString(s.toString)).viaMat(amqpRpcFlow)(Keep.right).toMat(resultSink)(Keep.both).run
 
     done.onComplete {
-      case Success(_) => logger.info(s"Command processed")
-      case Failure(err) => err.printStackTrace()
+      case Success(_) => afterPublish(topic, messages)
+      case Failure(err) => onError(topic, messages, err)
     }
     done
   }
 
-  def consume(nbMsgToTake: Long): Future[Done] = {
+  def consume(topic: String, nbMsgToTake: Long, noReply: Boolean = false): Future[Done] = {
 
-    val amqpSource = AmqpSource.atMostOnceSource(sourceSettings, bufferSize = prefetchCount) // declare a basic consumer
-    val amqpSink = AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider)) // declare a reply to Sink
+    val amqpSource = AmqpSource.atMostOnceSource(
+      TemporaryQueueSourceSettings(connectionProvider, exchangeName)
+        .withDeclaration(exchangeDeclaration)
+        .withRoutingKey(topic),
+      bufferSize = prefetchCount
+    )
+    val amqpSink = if (noReply) Sink.ignore else AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider)) // declare a reply to Sink
 
-    amqpSource.map { msg: IncomingMessage => onCommand(msg) }.runWith(amqpSink)
+    amqpSource.map { msg: IncomingMessage => Await.result(onMessage(msg, topic), Duration.Inf) }.runWith(amqpSink)
   }
-
-  def onCommand(msg: IncomingMessage): OutgoingMessage
-
-  //  def onCommand(msg: IncomingMessage): OutgoingMessage = {
-  //    OutgoingMessage(msg.bytes.concat(ByteString(" OK")), false, false).withProperties(msg.properties)
-  //  }
 }
