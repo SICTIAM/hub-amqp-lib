@@ -6,15 +6,6 @@ Pour déclarer un module AMQP, il est nécessaire d'instancier la classe `AmqpCo
 
 Par exemple :
 ```scala
-import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
-import akka.util.ByteString
-import fr.sictiam.amqp.api.AmqpMessage
-import fr.sictiam.amqp.api.controllers.{AmqpController, AmqpTask}
-import fr.sictiam.amqp.api.rpc.AmqpRpcTopicServer
-import play.api.libs.json._
-
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
 
     val exName = "hddExchange"
 
