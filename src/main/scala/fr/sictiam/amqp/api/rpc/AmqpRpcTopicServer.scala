@@ -62,12 +62,13 @@ abstract class AmqpRpcTopicServer(val exchangeName: String, val serviceName: Str
     beforePublish(topic, messages)
 
     // Send messages through the flow
-    val (_, done: Future[Done]) = Source(messages).map(s => ByteString(s.toString)).viaMat(amqpRpcFlow)(Keep.right).toMat(resultSink)(Keep.both).run
+    val (_, done: Future[Done]) = Source(messages).map { s => ByteString(s.toString) }.viaMat(amqpRpcFlow)(Keep.right).toMat(resultSink)(Keep.both).run
 
     done.onComplete {
       case Success(_) => afterPublish(topic, messages)
       case Failure(err) => onError(topic, messages, err)
     }
+
     done
   }
 
@@ -79,7 +80,9 @@ abstract class AmqpRpcTopicServer(val exchangeName: String, val serviceName: Str
         .withRoutingKey(topic),
       bufferSize = prefetchCount
     )
-    val amqpSink = if (noReply) Sink.ignore else AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider)) // declare a reply to Sink
+    val amqpSink = if (noReply) Sink.ignore else {
+      AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider))
+    } // declare a reply to Sink
 
     amqpSource.map { msg: IncomingMessage => Await.result(onMessage(msg, topic), Duration.Inf) }.runWith(amqpSink)
   }

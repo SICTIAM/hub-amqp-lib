@@ -25,7 +25,7 @@ import fr.sictiam.amqp.api.controllers.{AmqpController, AmqpTask}
 import fr.sictiam.amqp.api.rpc.AmqpRpcTopicServer
 import play.api.libs.json._
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /**
@@ -37,6 +37,7 @@ class AmqpControllerSpec extends AmqpSpec {
   "AmqpController" should {
 
     val exName = "testExchange"
+
     val topic1 = "graph.create.triples"
     val topic2 = "graph.update.triples"
     val topic3 = "graph.delete.triples"
@@ -71,25 +72,46 @@ class AmqpControllerSpec extends AmqpSpec {
     "start without error" in {
       controller.start
     }
+
     "dispatch processing through atomic tasks regarding the topic tasks were registered with" in {
 
       val producer = new AmqpRpcTopicServer(exName, "producerTest") {
-        override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = ???
+        override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
+          println(s"Message received : ${msg.bytes.utf8String}")
+          Future(OutgoingMessage(ByteString("OK"), true, true))(ec)
+        }
 
         override def onReply(msg: ByteString): Unit = {
           println(s"Reply received : ${msg.utf8String}")
         }
+
+
+        override def beforePublish(topic: String, messages: Vector[AmqpMessage]): Unit = {
+          println(s"Before publish")
+        }
+
+        override def afterPublish(topic: String, messages: Vector[AmqpMessage]): Unit = {
+          println(s"After publish")
+        }
+
+        override def beforeReply(msg: ByteString): Unit = {
+          println(s"Before reply")
+        }
+
+        override def afterReply(msg: ByteString): Unit = {
+          println(s"After reply")
+        }
       }
 
-      val messages = Vector(
-        AmqpMessage(headers, JsString("One"))
-      )
-      val f1 = producer.publish(topic1, messages)
-      val f2 = producer.publish(topic2, messages)
-      val f3 = producer.publish(topic3, messages)
+      val f1 = producer.publish(topic1, Vector(AmqpMessage(headers, JsString("One"))))
+      val f2 = producer.publish(topic2, Vector(AmqpMessage(headers, JsString("Two"))))
+      val f3 = producer.publish(topic3, Vector(AmqpMessage(headers, JsString("Three"))))
+
       val overallFuture = Future.sequence(Seq(f1, f2, f3))
-      Await.result(overallFuture, Duration.Inf)
+      Await.result(overallFuture, 5 seconds)
+
     }
+
     "stop without error" in {
       controller.shutdown
     }

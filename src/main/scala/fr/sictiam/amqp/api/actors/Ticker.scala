@@ -27,11 +27,9 @@ import akka.actor.{Actor, ActorLogging, PoisonPill}
 class Ticker extends Actor with ActorLogging {
   override def receive: Receive = {
     case Consume(srvr, topics, nbMsg) ⇒ {
-      log.debug("Ticker received a consume message")
       topics.map(topic => srvr.consume(topic, nbMsg))
     }
     case Kill ⇒ {
-      log.info("Ticker received kill message")
       self ! PoisonPill
     }
     case _ ⇒ log.error("Ticker received unknown message")

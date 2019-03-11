@@ -87,7 +87,7 @@ trait AmqpGenericRpcServer extends AmqpGenericAgent {
 
 trait AmqpGenericConsumer extends AmqpGenericAgent {
   /**
-    * Consumes a fixed number of messages from the queue
+    * Consumes a fixed number of messages from the queue/exchange
     *
     * @param nbMsgToTake the number of messages to consume from the queue
     * @return a future collection of messages
@@ -97,7 +97,7 @@ trait AmqpGenericConsumer extends AmqpGenericAgent {
 
 trait AmqpGenericProducer extends AmqpGenericAgent {
   /**
-    * Publishes a message to the broker with the name of the queue to
+    * Publishes a message to the broker
     *
     * @param messages : a collection of messages to publish
     * @return a future value set to Done if the publishing was successful

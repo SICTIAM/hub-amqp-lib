@@ -36,11 +36,17 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class AmqpController(val exchangeName: String, val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends LazyLogging {
 
-  lazy val server = new AmqpRpcTopicServer(exchangeName, serviceName) {
+  val server = new AmqpRpcTopicServer(exchangeName, serviceName) {
     override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
       val topic = params(0)
       val task = tasks(topic)
-      task.process(Json.parse(msg.bytes.utf8String)).map { jsval => OutgoingMessage(ByteString(jsval.toString()), true, true) }
+      task.process(Json.parse(msg.bytes.utf8String)).map { jsval =>
+        OutgoingMessage(
+          ByteString(jsval.toString()),
+          false,
+          false
+        ).withProperties(msg.properties)
+      }
     }
   }
 
