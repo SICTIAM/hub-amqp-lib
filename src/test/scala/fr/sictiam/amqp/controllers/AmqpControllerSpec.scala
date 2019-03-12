@@ -21,7 +21,7 @@ import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
 import akka.util.ByteString
 import fr.sictiam.amqp.AmqpSpec
 import fr.sictiam.amqp.api.AmqpMessage
-import fr.sictiam.amqp.api.controllers.{AmqpController, AmqpTask}
+import fr.sictiam.amqp.api.controllers.AmqpController
 import fr.sictiam.amqp.api.rpc.AmqpRpcTopicServer
 import play.api.libs.json._
 
@@ -39,36 +39,17 @@ class AmqpControllerSpec extends AmqpSpec {
     val exName = "testExchange"
 
     val topic1 = "graph.create.triples"
-    val topic2 = "graph.update.triples"
-    val topic3 = "graph.delete.triples"
+    val topic2 = "graph.read.triples"
+    val topic3 = "graph.update.triples"
+    val topic4 = "graph.delete.triples"
 
     val headers = Map.empty[String, JsValue]
 
-    val task1 = new AmqpTask {
-      override def process(parameter: JsValue)(implicit ec: ExecutionContext): Future[JsValue] = {
-        println("task1/" + Json.stringify(parameter))
-        Future(JsNumber(Json.stringify(parameter).length))(ec)
-      }
-    }
-
-    val task2 = new AmqpTask {
-      override def process(parameter: JsValue)(implicit ec: ExecutionContext): Future[JsValue] = {
-        println("task2/" + Json.stringify(parameter))
-        Future(JsString("Awesome processing"))(ec)
-      }
-    }
-
-    val task3 = new AmqpTask {
-      override def process(parameter: JsValue)(implicit ec: ExecutionContext): Future[JsValue] = {
-        println("task3/" + Json.stringify(parameter))
-        Future(JsBoolean(true))(ec)
-      }
-    }
-
     val controller = new AmqpController(exName, "serviceTest")
-    controller.registerTask(topic1, task1)
-    controller.registerTask(topic2, task2)
-    controller.registerTask(topic3, task3)
+    controller.registerTask(topic1, new FakeCreateTask)
+    controller.registerTask(topic2, new FakeReadTask)
+    controller.registerTask(topic3, new FakeUpdateTask)
+    controller.registerTask(topic4, new FakeDeleteTask)
     "start without error" in {
       controller.start
     }
@@ -84,30 +65,14 @@ class AmqpControllerSpec extends AmqpSpec {
         override def onReply(msg: ByteString): Unit = {
           println(s"Reply received : ${msg.utf8String}")
         }
-
-
-        override def beforePublish(topic: String, messages: Vector[AmqpMessage]): Unit = {
-          println(s"Before publish")
-        }
-
-        override def afterPublish(topic: String, messages: Vector[AmqpMessage]): Unit = {
-          println(s"After publish")
-        }
-
-        override def beforeReply(msg: ByteString): Unit = {
-          println(s"Before reply")
-        }
-
-        override def afterReply(msg: ByteString): Unit = {
-          println(s"After reply")
-        }
       }
 
       val f1 = producer.publish(topic1, Vector(AmqpMessage(headers, JsString("One"))))
       val f2 = producer.publish(topic2, Vector(AmqpMessage(headers, JsString("Two"))))
       val f3 = producer.publish(topic3, Vector(AmqpMessage(headers, JsString("Three"))))
+      val f4 = producer.publish(topic4, Vector(AmqpMessage(headers, JsString("Three"))))
 
-      val overallFuture = Future.sequence(Seq(f1, f2, f3))
+      val overallFuture = Future.sequence(Seq(f1, f2, f3, f4))
       Await.result(overallFuture, 5 seconds)
 
     }

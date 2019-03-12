@@ -1,5 +1,4 @@
 import Dependencies._
-import sbt.Opts.resolver
 import sbt.url
 
 ThisBuild / scalaVersion := "2.12.8"
@@ -43,12 +42,13 @@ lazy val root = (project in file("."))
     publishMavenStyle := true,
     credentials += Credentials(Path.userHome / ".sbt" / ".credentials"),
     resolvers ++= Seq(
-      resolver.mavenLocalFile,
       Resolver.mavenLocal,
-      "jitpack" at "https://jitpack.io",
-      "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases",
-      "Sonatype (Snapshots)" at "https://oss.sonatype.org/content/repositories/snapshots",
-      "Typesafe (Releases)" at "http://repo.typesafe.com/typesafe/releases/"
+      //      Resolver.sonatypeRepo("public"),
+      //      Resolver.typesafeRepo("releases"),
+      //      Resolver.typesafeIvyRepo("releases"),
+      //      Resolver.sbtPluginRepo("releases"),
+      //      Resolver.bintrayRepo("owner", "repo"),
+      "jitpack" at "https://jitpack.io"
     ),
     libraryDependencies ++= Seq(
       scalaTest % Test,

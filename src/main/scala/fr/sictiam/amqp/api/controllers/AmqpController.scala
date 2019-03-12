@@ -22,6 +22,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
 import akka.util.ByteString
 import com.typesafe.scalalogging.LazyLogging
+import fr.sictiam.amqp.api.AmqpClientConfiguration
 import fr.sictiam.amqp.api.actors.Scheduler
 import fr.sictiam.amqp.api.rpc.AmqpRpcTopicServer
 import play.api.libs.json.Json
@@ -55,6 +56,7 @@ class AmqpController(val exchangeName: String, val serviceName: String)(implicit
   var tasks = mutable.HashMap[String, AmqpTask]()
 
   def registerTask(topic: String, task: AmqpTask) = {
+    logger.info(s"""Service "$serviceName" registered a task (${task.getClass.getSimpleName}).""")
     tasks += (topic -> task)
   }
 
@@ -63,13 +65,24 @@ class AmqpController(val exchangeName: String, val serviceName: String)(implicit
   }
 
   def start: Unit = {
-    scheduler.start()
-    onStartup()
+    logger.info(s"""Service "$serviceName" starting...[rabbitmq://${AmqpClientConfiguration.user}:${AmqpClientConfiguration.pwd.map(_ => "*").mkString("")}@${AmqpClientConfiguration.host}:${AmqpClientConfiguration.port}]""")
+    try {
+      scheduler.start()
+      onStartup()
+    } catch {
+      case t: Throwable => {
+        logger.error(s"""Service "$serviceName" an error occured during startup. Exiting.""", t)
+        sys.exit(-1)
+      }
+    }
+    logger.info(s"""Service "$serviceName" started.""")
   }
 
   def shutdown = {
+    logger.info(s"""Service "$serviceName" is shuting down...""")
     scheduler.stop()
     onShutdown()
+    logger.info(s"""Service "$serviceName" exited successfully.""")
   }
 
   //  def consume(nbMsgToTake: Long): Future[Done] = server.consume("*", nbMsgToTake)
