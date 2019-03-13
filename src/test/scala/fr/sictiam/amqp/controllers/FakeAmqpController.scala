@@ -17,8 +17,6 @@
  */
 package fr.sictiam.amqp.controllers
 
-import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import fr.sictiam.amqp.api.controllers.AmqpController
@@ -34,15 +32,16 @@ object FakeAmqpController extends App {
 
   implicit val system = ActorSystem("FakeAmqpControllerSystem")
   implicit val materializer = ActorMaterializer()
-  implicit val ec: ExecutionContext = new ExecutionContext {
-    val threadPool = Executors.newFixedThreadPool(10)
-
-    def execute(runnable: Runnable) {
-      threadPool.submit(runnable)
-    }
-
-    def reportFailure(t: Throwable) {}
-  }
+  implicit val ec: ExecutionContext = ExecutionContext.global
+  //  implicit val ec: ExecutionContext = new ExecutionContext {
+  //    val threadPool = Executors.newFixedThreadPool(10)
+  //
+  //    def execute(runnable: Runnable) {
+  //      threadPool.submit(runnable)
+  //    }
+  //
+  //    def reportFailure(t: Throwable) {}
+  //  }
 
   val controller = new AmqpController("testExchange", "Fake Controller")
   controller.registerTask("graph.create", new FakeCreateTask)

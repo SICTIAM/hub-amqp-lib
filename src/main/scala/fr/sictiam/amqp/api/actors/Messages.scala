@@ -24,6 +24,6 @@ import fr.sictiam.amqp.api.rpc.AmqpRpcTopicServer
   * Date: 2019-03-04
   */
 
-case class Consume(val server: AmqpRpcTopicServer, val topics: Set[String], val nbMsgToTake: Long)
+case class Consume(val server: AmqpRpcTopicServer, val topics: Set[String])
 
 case object Kill

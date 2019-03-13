@@ -74,7 +74,6 @@ class AmqpControllerSpec extends AmqpSpec {
 
       val overallFuture = Future.sequence(Seq(f1, f2, f3, f4))
       Await.result(overallFuture, 5 seconds)
-
     }
 
     "stop without error" in {

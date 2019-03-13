@@ -34,6 +34,7 @@ object AmqpClientConfiguration {
   lazy val durable: Boolean = Option(conf.getBoolean("durable.messages")).getOrElse(false)
   lazy val fairDispatch: Boolean = Option(conf.getBoolean("qos.fairdispatch")).getOrElse(false)
   lazy val prefetchCount: Int = Option(conf.getInt("qos.prefetch.count")).getOrElse(10)
+  lazy val consumeInterval: Int = Option(conf.getInt("consume.interval")).getOrElse(500)
   lazy val timeout: Int = Option(conf.getInt("connection.timeout")).getOrElse(10000)
   lazy val exchangeName: String = Option(conf.getString("exchange.name")).getOrElse("default")
 

@@ -26,9 +26,9 @@ import akka.actor.{Actor, ActorLogging, PoisonPill}
 
 class Ticker extends Actor with ActorLogging {
   override def receive: Receive = {
-    case Consume(srvr, topics, nbMsg) ⇒ {
+    case Consume(srvr, topics) ⇒ {
       topics.map { topic =>
-        srvr.consume(topic, nbMsg)
+        srvr.consume(topic)
       }
     }
     case Kill ⇒ {

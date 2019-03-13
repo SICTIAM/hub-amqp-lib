@@ -98,8 +98,8 @@ class AmqpRpcTopicServerSpec extends AmqpSpec {
     "receive a command message, process it and write back the response to sender" in {
       val futureResult = node1.publish(topic, messages)
       println("Messages published.")
-      node2.consume(topic, 10)
-      node3.consume(topic, 10, true)
+      node2.consume(topic)
+      node3.consume(topic, true)
       Await.result(futureResult, Duration.Inf)
       outputBuffer1 shouldEqual messages.map(_.toString)
       outputBuffer2 shouldEqual messages.map(_.toString)

@@ -18,6 +18,7 @@
 package fr.sictiam.amqp.api.actors
 
 import akka.actor.{ActorSystem, Cancellable, Props}
+import fr.sictiam.amqp.api.AmqpClientConfiguration
 import fr.sictiam.amqp.api.rpc.AmqpRpcTopicServer
 
 import scala.concurrent.ExecutionContext
@@ -28,16 +29,15 @@ import scala.concurrent.duration._
   * Date: 2019-03-01
   */
 
-class Scheduler(val server: AmqpRpcTopicServer, val topics: Set[String], nbMsgToTake: Long, val system: ActorSystem, val ec: ExecutionContext) {
+class Scheduler(val server: AmqpRpcTopicServer, val topics: Set[String], nbMsgToTake: Long)(implicit val system: ActorSystem, val ec: ExecutionContext) {
 
   val ticker = system.actorOf(Props[Ticker], "ticker")
 
   var cancellable: Cancellable = _
 
   def start() = {
-    import system.dispatcher
-    cancellable = system.scheduler.schedule(0 milliseconds, 1000 milliseconds) {
-      ticker ! Consume(server, topics, nbMsgToTake)
+    cancellable = system.scheduler.schedule(0 milliseconds, AmqpClientConfiguration.consumeInterval milliseconds) {
+      ticker ! Consume(server, topics)
     }
   }
 

@@ -51,7 +51,7 @@ class AmqpController(val exchangeName: String, val serviceName: String)(implicit
     }
   }
 
-  lazy val scheduler = new Scheduler(server, tasks.keySet.toSet, 1, system, ec)
+  lazy val scheduler = new Scheduler(server, tasks.keySet.toSet, 1)
 
   var tasks = mutable.HashMap[String, AmqpTask]()
 

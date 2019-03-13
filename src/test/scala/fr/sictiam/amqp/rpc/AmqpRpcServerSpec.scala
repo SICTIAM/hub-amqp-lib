@@ -65,7 +65,7 @@ class AmqpRpcServerSpec extends AmqpSpec {
 
     "send a command, process it and write to reply queue without error" in {
       val futureResult = node1.publish("node2Queue", messages)
-      node2.consume(10)
+      node2.consume()
       Await.result(futureResult, Duration.Inf)
       outputBuffer shouldEqual messages.map(_.toString)
     }
