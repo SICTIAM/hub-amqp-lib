@@ -65,7 +65,7 @@ class AmqpController(val exchangeName: String, val serviceName: String)(implicit
   }
 
   def start: Unit = {
-    logger.info(s"""Service "$serviceName" starting...[rabbitmq://${AmqpClientConfiguration.user}:${AmqpClientConfiguration.pwd.map(_ => "*").mkString("")}@${AmqpClientConfiguration.host}:${AmqpClientConfiguration.port}]""")
+    logger.info(s"""Service "$serviceName" listening on: [rabbitmq://${AmqpClientConfiguration.user}:${AmqpClientConfiguration.pwd.map(_ => "*").mkString("")}@${AmqpClientConfiguration.host}:${AmqpClientConfiguration.port}]""")
     try {
       scheduler.start()
       onStartup()
@@ -79,7 +79,7 @@ class AmqpController(val exchangeName: String, val serviceName: String)(implicit
   }
 
   def shutdown = {
-    logger.info(s"""Service "$serviceName" is shuting down...""")
+    logger.info(s"""Service "$serviceName" is shutting down...""")
     scheduler.stop()
     onShutdown()
     logger.info(s"""Service "$serviceName" exited successfully.""")

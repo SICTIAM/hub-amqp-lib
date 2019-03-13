@@ -19,15 +19,15 @@ package fr.sictiam.amqp.api.rpc
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.alpakka.amqp._
 import akka.stream.alpakka.amqp.scaladsl.{AmqpRpcFlow, AmqpSink, AmqpSource}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.{ActorMaterializer, ThrottleMode}
 import akka.util.ByteString
 import fr.sictiam.amqp.api._
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /**
@@ -74,6 +74,7 @@ abstract class AmqpRpcTopicServer(val exchangeName: String, val serviceName: Str
 
   def consume(topic: String, nbMsgToTake: Long, noReply: Boolean = false): Future[Done] = {
 
+    logger.debug(s"consume $topic, $nbMsgToTake")
     val amqpSource = AmqpSource.atMostOnceSource(
       TemporaryQueueSourceSettings(connectionProvider, exchangeName)
         .withDeclaration(exchangeDeclaration)
@@ -84,6 +85,9 @@ abstract class AmqpRpcTopicServer(val exchangeName: String, val serviceName: Str
       AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider))
     } // declare a reply to Sink
 
-    amqpSource.map { msg: IncomingMessage => Await.result(onMessage(msg, topic), Duration.Inf) }.runWith(amqpSink)
+    amqpSource
+      .mapAsync(4) { msg: IncomingMessage => onMessage(msg, topic) }
+      .throttle(elements = nbMsgToTake.toInt, per = 1 second, maximumBurst = nbMsgToTake.toInt, mode = ThrottleMode.shaping)
+      .runWith(amqpSink)
   }
 }

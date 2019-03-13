@@ -26,8 +26,8 @@ import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.util.ByteString
 import fr.sictiam.amqp.api._
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /**
@@ -74,6 +74,9 @@ abstract class AmqpRpcServer(val queueName: String, val serviceName: String)(imp
     val amqpSource = AmqpSource.atMostOnceSource(sourceSettings, bufferSize = prefetchCount) // declare a basic consumer
     val amqpSink = AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider)) // declare a reply to Sink
 
-    amqpSource.map { msg: IncomingMessage => Await.result(onMessage(msg), Duration.Inf) }.runWith(amqpSink)
+    amqpSource
+      .mapAsync(4) { msg: IncomingMessage => onMessage(msg) }
+      .throttle(elements = nbMsgToTake.toInt, per = 1 second, maximumBurst = nbMsgToTake.toInt, mode = ThrottleMode.shaping)
+      .runWith(amqpSink)
   }
 }

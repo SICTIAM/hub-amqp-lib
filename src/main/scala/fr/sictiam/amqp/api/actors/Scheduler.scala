@@ -36,7 +36,7 @@ class Scheduler(val server: AmqpRpcTopicServer, val topics: Set[String], nbMsgTo
 
   def start() = {
     import system.dispatcher
-    cancellable = system.scheduler.schedule(0 milliseconds, 500 milliseconds) {
+    cancellable = system.scheduler.schedule(0 milliseconds, 1000 milliseconds) {
       ticker ! Consume(server, topics, nbMsgToTake)
     }
   }

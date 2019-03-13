@@ -7,6 +7,7 @@ object Dependencies {
   lazy val typesafeConfig = "com.typesafe" % "config" % "1.3.3"
 
   lazy val akkaStream = "com.typesafe.akka" %% "akka-stream" % "2.5.19"
+
   lazy val akkaStreamTestkit = "com.typesafe.akka" %% "akka-stream-testkit" % "2.5.19"
   lazy val alpakkaAmqp = "com.lightbend.akka" %% "akka-stream-alpakka-amqp" % "1.0-M2"
 
