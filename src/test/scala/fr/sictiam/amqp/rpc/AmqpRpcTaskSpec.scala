@@ -22,7 +22,7 @@ import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
 import akka.util.ByteString
 import fr.sictiam.amqp.AmqpSpec
 import fr.sictiam.amqp.api.AmqpMessage
-import fr.sictiam.amqp.api.rpc.{AmqpRpcConsumer, AmqpRpcProducer}
+import fr.sictiam.amqp.api.rpc.{AmqpRpcTask, AmqpRpcTopicProducer}
 import play.api.libs.json.{JsString, JsValue}
 
 import scala.collection.mutable
@@ -31,16 +31,20 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * Created by Nicolas DELAFORGE (nicolas.delaforge@mnemotix.com).
-  * Date: 2019-02-25
+  * Date: 2019-03-15
   */
 
-class AmqpRpcServerSpec extends AmqpSpec {
-
-  val headers = Map.empty[String, JsValue]
+class AmqpRpcTaskSpec extends AmqpSpec {
 
   override implicit val patienceConfig = PatienceConfig(10.seconds)
 
-  "The AmqpRpcServer" should {
+  "AmqpRpcTask" should {
+    val topicName = "graph.create.triples"
+    val exchange = "rpcTaskExchangeTest"
+
+    val headers = Map.empty[String, JsValue]
+    val processBuffer = mutable.Buffer[String]()
+    val replyBuffer = mutable.Buffer[String]()
 
     val messages = Vector(
       AmqpMessage(headers, JsString("One")),
@@ -48,24 +52,30 @@ class AmqpRpcServerSpec extends AmqpSpec {
       AmqpMessage(headers, JsString("Three"))
     )
 
-    val outputBuffer = mutable.Buffer[String]()
-
-    val producer = new AmqpRpcProducer("producerQueue", "Producer") {
-      override def onReply(msg: ByteString): Unit = println(s"Reply received: ${msg.utf8String}")
-    }
-
-    val consumer = new AmqpRpcConsumer("consumerQueue", "Consumer") {
-      override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
-        outputBuffer += msg.bytes.utf8String
-        Future(OutgoingMessage(ByteString(" OK"), false, false).withProperties(msg.properties))(ec)
+    val producer = new AmqpRpcTopicProducer(exchange, "Main Producer") {
+      override def onReply(msg: ByteString): Unit = {
+        replyBuffer += msg.utf8String
+        println(s"$serviceName / Reply received: ${msg.utf8String}")
       }
     }
 
-    "receive a command, process it and write to reply queue without error" in {
-      val futureResult = producer.publish("consumerQueue", messages)
-      consumer.consumeOnce()
+    val task = new AmqpRpcTask {
+      override val topic: String = topicName
+      override val exchangeName: String = exchange
+
+      override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
+        println(s"$serviceName / Message received : ${msg.bytes.utf8String}")
+        processBuffer += msg.bytes.utf8String
+        Future(OutgoingMessage(ByteString(s"Reponse received from $serviceName"), false, false).withProperties(msg.properties))(ec)
+      }
+    }
+
+    "consume a topic" in {
+      val futureResult = producer.publish(topicName, messages)
+      task.consumeOnce()
       futureResult.futureValue shouldBe Done
-      outputBuffer shouldEqual messages.map(_.toString)
+      processBuffer.size shouldEqual messages.length
+      replyBuffer.size shouldEqual messages.length
     }
   }
 }

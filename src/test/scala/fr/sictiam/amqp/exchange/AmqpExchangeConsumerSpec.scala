@@ -17,11 +17,14 @@
  */
 package fr.sictiam.amqp.exchange
 
+import akka.stream.alpakka.amqp.IncomingMessage
 import fr.sictiam.amqp.AmqpSpec
 import fr.sictiam.amqp.api.exchange.{AmqpExchangeConsumer, AmqpExchangeProducer}
 import fr.sictiam.amqp.api.{AmqpMessage, ExchangeTypes}
 import play.api.libs.json.{JsString, JsValue}
 
+import scala.collection.mutable
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 /**
@@ -44,17 +47,19 @@ class AmqpExchangeConsumerSpec extends AmqpSpec {
       AmqpMessage(headers, JsString("Two")),
       AmqpMessage(headers, JsString("Three"))
     )
+    val outputBuffer = mutable.Buffer[String]()
 
     producer.publish(messages)
 
-    val consumer = new AmqpExchangeConsumer(exName, ExchangeTypes.Fanout, "consumerTest")
+    val consumer = new AmqpExchangeConsumer(exName, ExchangeTypes.Fanout, "consumerTest") {
+      override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Unit = {
+        outputBuffer += msg.bytes.utf8String
+      }
+    }
 
     "receive a message without error" in {
-      val results = consumer.consume(3).futureValue
-      results.size shouldEqual 3
-      results.map { msg =>
-        msg.body.as[String]
-      } shouldBe Seq("One", "Two", "Three")
+      consumer.consumeOnce(3).futureValue
+      outputBuffer.size shouldEqual 3
     }
   }
 }

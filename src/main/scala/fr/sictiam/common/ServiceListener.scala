@@ -15,21 +15,18 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package fr.sictiam.amqp.controllers
+package fr.sictiam.common
 
-import fr.sictiam.amqp.api.controllers.AmqpTask
-import play.api.libs.json.{JsString, JsValue, Json}
-
-import scala.concurrent.{ExecutionContext, Future}
+import com.typesafe.scalalogging.LazyLogging
 
 /**
   * Created by Nicolas DELAFORGE (nicolas.delaforge@mnemotix.com).
-  * Date: 2019-03-12
+  * Date: 2019-01-29
   */
 
-class FakeReadTask extends AmqpTask {
-  override def process(parameter: JsValue)(implicit ec: ExecutionContext): Future[JsValue] = {
-    println("read task/" + Json.stringify(parameter))
-    Future(JsString("Awesome processing"))(ec)
-  }
+trait ServiceListener extends LazyLogging {
+
+  def onStartup()
+
+  def onShutdown()
 }

@@ -17,11 +17,11 @@
  */
 package fr.sictiam.amqp.api.basic
 
+import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.stream.alpakka.amqp.scaladsl.AmqpSource
 import akka.stream.scaladsl.Sink
-import fr.sictiam.amqp.api.{AmqpGenericConsumer, AmqpMessage, NamedQueue}
+import fr.sictiam.amqp.api.{AmqpGenericConsumer, NamedQueue}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -30,11 +30,21 @@ import scala.concurrent.{ExecutionContext, Future}
   * Date: 2019-01-30
   */
 
-class AmqpBasicConsumer(val queueName: String, val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericConsumer with NamedQueue {
+abstract class AmqpBasicConsumer(val queueName: String, val serviceName: String, override val ackRequired: Boolean = false)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericConsumer with NamedQueue {
 
   override def init: Unit = {}
 
-  override def consume(nbMsgToTake: Long): Future[Seq[AmqpMessage]] = {
+  /**
+    * Consumes a fixed number of messages from the queue/exchange
+    *
+    * @param nbMsgToTake the number of messages to consume from the queue
+    * @return a future collection of messages
+    */
+  override def consumeOnce(nbMsgToTake: Long, noReply: Boolean): Future[Done] = amqpSource.take(nbMsgToTake).map(msg => onMessage(msg)).runWith(Sink.ignore)
+
+
+  /*
+    override def consume(nbMsgToTake: Long): Future[Seq[AmqpMessage]] = {
     val amqpSource = AmqpSource.atMostOnceSource(
       sourceSettings,
       bufferSize = prefetchCount
@@ -42,4 +52,6 @@ class AmqpBasicConsumer(val queueName: String, val serviceName: String)(implicit
     val result = amqpSource.take(nbMsgToTake).runWith(Sink.seq)
     result.map(_.map(msg => AmqpMessage(msg.bytes.utf8String)))
   }
+
+   */
 }

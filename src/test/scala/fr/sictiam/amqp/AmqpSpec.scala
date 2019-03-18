@@ -22,31 +22,29 @@ package fr.sictiam.amqp
   * Date: 2019-01-30
   */
 
-import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 //import akka.dispatch.ExecutionContexts
 import akka.stream.ActorMaterializer
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
-import scala.concurrent.ExecutionContext
-
 
 abstract class AmqpSpec extends WordSpec with Matchers with BeforeAndAfterAll with ScalaFutures {
 
   implicit val system = ActorSystem(this.getClass.getSimpleName)
   implicit val materializer = ActorMaterializer()
+  implicit val executionContext = system.dispatcher
+
   //  implicit val executionContext = ExecutionContexts.global()
-  implicit val executionContext: ExecutionContext = new ExecutionContext {
-    val threadPool = Executors.newFixedThreadPool(10)
-
-    def execute(runnable: Runnable) {
-      threadPool.submit(runnable)
-    }
-
-    def reportFailure(t: Throwable) {}
-  }
+  //  implicit val executionContext: ExecutionContext = new ExecutionContext {
+  //    val threadPool = Executors.newFixedThreadPool(10)
+  //
+  //    def execute(runnable: Runnable) {
+  //      threadPool.submit(runnable)
+  //    }
+  //
+  //    def reportFailure(t: Throwable) {}
+  //  }
 
 
   override protected def afterAll(): Unit =

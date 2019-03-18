@@ -17,16 +17,17 @@
  */
 package fr.sictiam.amqp.rpc
 
+import akka.Done
 import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
 import akka.util.ByteString
 import fr.sictiam.amqp.AmqpSpec
 import fr.sictiam.amqp.api.AmqpMessage
-import fr.sictiam.amqp.api.rpc.AmqpRpcTopicServer
+import fr.sictiam.amqp.api.rpc.{AmqpRpcTopicConsumer, AmqpRpcTopicProducer}
 import play.api.libs.json.{JsString, JsValue}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 
 /**
@@ -49,60 +50,41 @@ class AmqpRpcTopicServerSpec extends AmqpSpec {
     )
     val outputBuffer1 = mutable.Buffer[String]()
     val outputBuffer2 = mutable.Buffer[String]()
+    val replyBuffer = mutable.Buffer[String]()
     val topic = "graph.create.node"
+    val exchange = "rpcTopicTestExchange"
 
-    val node1 = new AmqpRpcTopicServer("testExchange", "rpcNode1Test") {
-
-      override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = ???
-
-      override def beforePublish(topic: String, messages: Vector[AmqpMessage]): Unit = {
-        println(s"Before publish")
-      }
-
-      override def afterPublish(topic: String, messages: Vector[AmqpMessage]): Unit = {
-        println(s"After publish")
-      }
-
-      override def beforeReply(msg: ByteString): Unit = {
-        println(s"Before reply")
-      }
-
-      override def afterReply(msg: ByteString): Unit = {
-        println(s"After reply")
-      }
-
+    val producer = new AmqpRpcTopicProducer(exchange, "Main Producer") {
       override def onReply(msg: ByteString): Unit = {
-        println(s"Reply received: ${msg.utf8String}")
+        replyBuffer += msg.utf8String
+        println(s"$serviceName / Reply received: ${msg.utf8String}")
       }
     }
 
-    val node2 = new AmqpRpcTopicServer("testExchange", "rpcNode2Test") {
+    val consumer1 = new AmqpRpcTopicConsumer(topic, exchange, "Consumer 1") {
       override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
-        println(s"Consummer1 message received : ${msg.bytes.utf8String}")
+        println(s"$serviceName / Message received : ${msg.bytes.utf8String}")
         outputBuffer1 += msg.bytes.utf8String
-        Future(OutgoingMessage(ByteString("Reponse received from Consumer 1"), false, false).withProperties(msg.properties))(ec)
+        Future(OutgoingMessage(ByteString(s"Reponse received from $serviceName"), false, false).withProperties(msg.properties))(ec)
       }
-
-      override def onReply(msg: ByteString): Unit = ???
     }
 
-    val node3 = new AmqpRpcTopicServer("testExchange", "rpcNode3Test") {
+    val consumer2 = new AmqpRpcTopicConsumer(topic, exchange, "Consumer 2") {
       override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
-        println(s"Consummer2 message received : ${msg.bytes.utf8String}")
+        println(s"$serviceName / Message received : ${msg.bytes.utf8String}")
         outputBuffer2 += msg.bytes.utf8String
-        Future(OutgoingMessage(ByteString("Reponse received from Consumer 2"), false, false).withProperties(msg.properties))(ec)
+        Future(OutgoingMessage(ByteString(s"Reponse received from $serviceName"), false, false).withProperties(msg.properties))(ec)
       }
-
-      override def onReply(msg: ByteString): Unit = ???
     }
+
     "receive a command message, process it and write back the response to sender" in {
-      val futureResult = node1.publish(topic, messages)
-      println("Messages published.")
-      node2.consume(topic)
-      node3.consume(topic, true)
-      Await.result(futureResult, Duration.Inf)
+      val futureResult = producer.publish(topic, messages)
+      consumer1.consumeOnce()
+      consumer2.consumeOnce(true)
+      futureResult.futureValue shouldBe Done
       outputBuffer1 shouldEqual messages.map(_.toString)
       outputBuffer2 shouldEqual messages.map(_.toString)
+      replyBuffer.size shouldEqual messages.size
     }
   }
 }

@@ -15,41 +15,34 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package fr.sictiam.amqp.api.basic
+package fr.sictiam.amqp.api.rpc
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream._
 import akka.stream.alpakka.amqp._
-import akka.stream.alpakka.amqp.scaladsl.AmqpSink
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
-import fr.sictiam.amqp.api.{AmqpGenericProducer, AmqpMessage, NamedQueue}
+import akka.stream.alpakka.amqp.scaladsl.{AmqpSink, AmqpSource}
+import akka.stream.scaladsl.Sink
+import fr.sictiam.amqp.api._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * Created by Nicolas DELAFORGE (nicolas.delaforge@mnemotix.com).
-  * Date: 2019-01-30
+  * Date: 2019-02-20
   */
 
-class AmqpBasicProducer(val queueName: String, val serviceName: String, override val ackRequired: Boolean = false)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericProducer with NamedQueue {
+abstract class AmqpRpcConsumer(val queueName: String, val serviceName: String, override val ackRequired: Boolean = false)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericRpcConsumer with NamedQueue {
 
   override def init: Unit = {}
 
-  /**
-    * Publishes a message to the broker with the name of the queue to
-    *
-    * @param messages
-    * @return
-    */
-  override def publish(messages: Vector[AmqpMessage]): Future[Done] = {
-    val amqpSink = AmqpSink.simple(
-      AmqpSinkSettings(connectionProvider)
-        .withRoutingKey(queueName)
-        .withDeclaration(queueDeclaration)
-    )
-    Source(messages).map(s => ByteString(s.toString)).runWith(amqpSink)
-  }
+  lazy val amqpSource = AmqpSource.committableSource(sourceSettings, bufferSize = prefetchCount) // declare a basic consumer
 
+  override def consumeOnce(noReply: Boolean = false): Future[Done] = {
+    val amqpSink = if (noReply) Sink.ignore else AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider)) // declare a reply to Sink
+    amqpSource.mapAsync(4) { cm =>
+      cm.ack()
+      onMessage(cm.message)
+    }.runWith(amqpSink)
+  }
 }

@@ -21,7 +21,7 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.alpakka.amqp._
-import akka.stream.alpakka.amqp.scaladsl.{AmqpRpcFlow, AmqpSink, AmqpSource}
+import akka.stream.alpakka.amqp.scaladsl.AmqpRpcFlow
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import akka.util.ByteString
 import fr.sictiam.amqp.api._
@@ -34,7 +34,7 @@ import scala.util.{Failure, Success}
   * Date: 2019-02-20
   */
 
-abstract class AmqpRpcServer(val queueName: String, val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericRpcServer with NamedQueue {
+abstract class AmqpRpcProducer(val queueName: String, val serviceName: String, override val ackRequired: Boolean = false)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericRpcProducer with NamedQueue {
 
   override def init: Unit = {}
 
@@ -66,15 +66,5 @@ abstract class AmqpRpcServer(val queueName: String, val serviceName: String)(imp
       case Failure(err) => onError(toQueueName, messages, err)
     }
     done
-  }
-
-  def consume(): Future[Done] = {
-
-    val amqpSource = AmqpSource.atMostOnceSource(sourceSettings, bufferSize = prefetchCount) // declare a basic consumer
-    val amqpSink = AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider)) // declare a reply to Sink
-
-    amqpSource
-      .mapAsync(4) { msg: IncomingMessage => onMessage(msg) }
-      .runWith(amqpSink)
   }
 }

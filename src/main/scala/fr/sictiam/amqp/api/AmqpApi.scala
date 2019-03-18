@@ -22,6 +22,7 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.alpakka.amqp._
+import akka.stream.alpakka.amqp.scaladsl.AmqpSource
 import akka.util.ByteString
 import fr.sictiam.common.GenericService
 
@@ -41,6 +42,8 @@ trait AmqpConfiguration {
   lazy val durable: Boolean = AmqpClientConfiguration.durable
   lazy val fairDispatch: Boolean = AmqpClientConfiguration.fairDispatch
   lazy val prefetchCount: Int = AmqpClientConfiguration.prefetchCount
+  lazy val automaticRecoveryEnabled: Boolean = AmqpClientConfiguration.automaticRecoveryEnabled
+  lazy val topologyRecoveryEnabled: Boolean = AmqpClientConfiguration.topologyRecoveryEnabled
   lazy val timeout: Int = AmqpClientConfiguration.timeout
 }
 
@@ -56,17 +59,17 @@ trait AmqpGenericAgent extends GenericService with AmqpConfiguration {
   val connectionProvider = AmqpDetailsConnectionProvider("invalid", 5673)
     .withCredentials(AmqpCredentials(user, pwd))
     .withHostsAndPorts(immutable.Seq(host -> port))
+    .withAutomaticRecoveryEnabled(automaticRecoveryEnabled)
+    .withTopologyRecoveryEnabled(topologyRecoveryEnabled)
 
   override def shutdown: Unit = {
     system.terminate()
   }
 }
 
-trait AmqpGenericRpcServer extends AmqpGenericAgent {
+trait AmqpGenericRpcProducer extends AmqpGenericAgent {
 
   def publish(toQueueName: String, messages: Vector[AmqpMessage]): Future[Done]
-
-  def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage]
 
   def onReply(msg: ByteString): Unit = {}
 
@@ -85,14 +88,35 @@ trait AmqpGenericRpcServer extends AmqpGenericAgent {
 
 }
 
+trait AmqpGenericRpcConsumer extends AmqpGenericAgent {
+
+  val sourceSettings: AmqpSourceSettings
+
+  //  lazy val amqpSource = AmqpSource.committableSource(sourceSettings, bufferSize = prefetchCount) // declare a basic consumer
+
+  def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage]
+
+  def consumeOnce(noReply: Boolean = false): Future[Done]
+}
+
 trait AmqpGenericConsumer extends AmqpGenericAgent {
+
+  val sourceSettings: AmqpSourceSettings
+
+  lazy val amqpSource = AmqpSource.atMostOnceSource(sourceSettings, bufferSize = prefetchCount)
+
+  def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext)
+
   /**
     * Consumes a fixed number of messages from the queue/exchange
     *
     * @param nbMsgToTake the number of messages to consume from the queue
     * @return a future collection of messages
     */
-  def consume(nbMsgToTake: Long): Future[Seq[AmqpMessage]]
+  //  def consumeOnce(nbMsgToTake: Long): Future[Done]
+
+  def consumeOnce(nbMsgToTake: Long = 1, noReply: Boolean = false): Future[Done]
+
 }
 
 trait AmqpGenericProducer extends AmqpGenericAgent {
@@ -107,13 +131,22 @@ trait AmqpGenericProducer extends AmqpGenericAgent {
 
 trait NamedQueue extends AmqpGenericAgent {
   val queueName: String
+  val ackRequired: Boolean
   lazy val queueDeclaration = QueueDeclaration(queueName).withDurable(durable)
-  lazy val sourceSettings: AmqpSourceSettings = NamedQueueSourceSettings(connectionProvider, queueName).withDeclaration(queueDeclaration)
+  lazy val sourceSettings: AmqpSourceSettings = NamedQueueSourceSettings(connectionProvider, queueName).withDeclaration(queueDeclaration).withAckRequired(ackRequired)
 }
 
 trait Exchange extends AmqpGenericAgent {
   val exchangeName: String
   val exchangeType: ExchangeTypes.ExchangeTypeVal
-  lazy val exchangeDeclaration = ExchangeDeclaration(exchangeName, exchangeType.label)
+  lazy val exchangeDeclaration = ExchangeDeclaration(exchangeName, exchangeType.label).withDurable(AmqpClientConfiguration.durable)
   lazy val sourceSettings: AmqpSourceSettings = TemporaryQueueSourceSettings(connectionProvider, exchangeName).withDeclaration(exchangeDeclaration)
+}
+
+trait Topic extends AmqpGenericAgent {
+  val exchangeName: String
+  val exchangeType: ExchangeTypes.ExchangeTypeVal = ExchangeTypes.Topic
+  val topic: String
+  lazy val exchangeDeclaration = ExchangeDeclaration(exchangeName, exchangeType.label).withDurable(AmqpClientConfiguration.durable)
+  lazy val sourceSettings: AmqpSourceSettings = TemporaryQueueSourceSettings(connectionProvider, exchangeName).withDeclaration(exchangeDeclaration).withRoutingKey(topic)
 }

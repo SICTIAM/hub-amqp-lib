@@ -17,6 +17,7 @@
  */
 package fr.sictiam.amqp.api.exchange
 
+import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.alpakka.amqp._
@@ -31,19 +32,18 @@ import scala.concurrent.{ExecutionContext, Future}
   * Date: 2019-01-30
   */
 
-class AmqpExchangeConsumer(val exchangeName: String, val exchangeType: ExchangeTypes.ExchangeTypeVal, val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericConsumer with Exchange {
+abstract class AmqpExchangeConsumer(val exchangeName: String, val exchangeType: ExchangeTypes.ExchangeTypeVal, val serviceName: String)(implicit val system: ActorSystem, val materializer: ActorMaterializer, val ec: ExecutionContext) extends AmqpGenericConsumer with Exchange {
 
   override def init: Unit = {}
 
-  override def consume(nbMsgToTake: Long): Future[Seq[AmqpMessage]] = {
+  override lazy val amqpSource = AmqpSource.atMostOnceSource(TemporaryQueueSourceSettings(connectionProvider, exchangeName).withDeclaration(exchangeDeclaration), bufferSize = prefetchCount)
 
-    val amqpSource = AmqpSource.atMostOnceSource(
-      TemporaryQueueSourceSettings(connectionProvider, exchangeName)
-        .withDeclaration(exchangeDeclaration),
-      bufferSize = prefetchCount
-    )
-    val result = amqpSource.take(nbMsgToTake).runWith(Sink.seq)
-    result.map(_.map(msg => AmqpMessage(msg.bytes.utf8String)))
 
-  }
+  /**
+    * Consumes a fixed number of messages from the queue/exchange
+    *
+    * @param nbMsgToTake the number of messages to consume from the queue
+    * @return a future collection of messages
+    */
+  override def consumeOnce(nbMsgToTake: Long = 1, noReply: Boolean = false): Future[Done] = amqpSource.take(nbMsgToTake).map(msg => onMessage(msg)).runWith(Sink.ignore)
 }

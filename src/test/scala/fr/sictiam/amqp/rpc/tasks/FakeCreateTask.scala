@@ -15,10 +15,13 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package fr.sictiam.amqp.controllers
+package fr.sictiam.amqp.rpc.tasks
 
-import fr.sictiam.amqp.api.controllers.AmqpTask
-import play.api.libs.json.{JsNumber, JsValue, Json}
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
+import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
+import akka.util.ByteString
+import fr.sictiam.amqp.api.rpc.AmqpRpcTask
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,9 +30,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * Date: 2019-03-12
   */
 
-class FakeCreateTask extends AmqpTask {
-  override def process(parameter: JsValue)(implicit ec: ExecutionContext): Future[JsValue] = {
-    println("create task/" + Json.stringify(parameter))
-    Future(JsNumber(Json.stringify(parameter).length))(ec)
+class FakeCreateTask(override val topic: String, override val exchangeName: String)(implicit override val system: ActorSystem, override val materializer: ActorMaterializer, override val ec: ExecutionContext) extends AmqpRpcTask {
+
+  override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
+    println("Create task/" + msg.bytes.utf8String)
+    Future(OutgoingMessage(ByteString(s"Reponse received from $serviceName"), false, false).withProperties(msg.properties))(ec)
   }
 }
