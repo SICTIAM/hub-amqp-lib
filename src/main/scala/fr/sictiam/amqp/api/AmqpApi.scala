@@ -96,7 +96,7 @@ trait AmqpGenericRpcConsumer extends AmqpGenericAgent {
 
   def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage]
 
-  def consumeOnce(noReply: Boolean = false): Future[Done]
+  def consume(noReply: Boolean = false): Future[Done]
 }
 
 trait AmqpGenericConsumer extends AmqpGenericAgent {
@@ -113,9 +113,7 @@ trait AmqpGenericConsumer extends AmqpGenericAgent {
     * @param nbMsgToTake the number of messages to consume from the queue
     * @return a future collection of messages
     */
-  //  def consumeOnce(nbMsgToTake: Long): Future[Done]
-
-  def consumeOnce(nbMsgToTake: Long = 1, noReply: Boolean = false): Future[Done]
+  def consume(nbMsgToTake: Long = 1, noReply: Boolean = false): Future[Done]
 
 }
 

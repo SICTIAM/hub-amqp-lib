@@ -58,7 +58,7 @@ class AmqpExchangeConsumerSpec extends AmqpSpec {
     }
 
     "receive a message without error" in {
-      consumer.consumeOnce(3).futureValue
+      consumer.consume(3).futureValue
       outputBuffer.size shouldEqual 3
     }
   }

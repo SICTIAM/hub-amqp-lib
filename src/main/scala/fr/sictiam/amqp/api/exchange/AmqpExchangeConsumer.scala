@@ -45,5 +45,5 @@ abstract class AmqpExchangeConsumer(val exchangeName: String, val exchangeType: 
     * @param nbMsgToTake the number of messages to consume from the queue
     * @return a future collection of messages
     */
-  override def consumeOnce(nbMsgToTake: Long = 1, noReply: Boolean = false): Future[Done] = amqpSource.take(nbMsgToTake).map(msg => onMessage(msg)).runWith(Sink.ignore)
+  override def consume(nbMsgToTake: Long = 1, noReply: Boolean = false): Future[Done] = amqpSource.take(nbMsgToTake).map(msg => onMessage(msg)).runWith(Sink.ignore)
 }

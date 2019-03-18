@@ -57,7 +57,7 @@ class AmqpBasicConsumerSpec extends AmqpSpec {
     }
 
     "receive a message without error" in {
-      consumer.consumeOnce(messages.size)
+      consumer.consume(messages.size)
       producer.publish(messages).futureValue shouldBe Done
       outputBuffer.size shouldEqual 3
     }

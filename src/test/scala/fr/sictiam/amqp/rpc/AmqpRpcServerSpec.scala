@@ -63,7 +63,7 @@ class AmqpRpcServerSpec extends AmqpSpec {
 
     "receive a command, process it and write to reply queue without error" in {
       val futureResult = producer.publish("consumerQueue", messages)
-      consumer.consumeOnce()
+      consumer.consume()
       futureResult.futureValue shouldBe Done
       outputBuffer shouldEqual messages.map(_.toString)
     }

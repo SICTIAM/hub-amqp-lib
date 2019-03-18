@@ -52,11 +52,11 @@ abstract class AmqpRpcTask()(implicit val system: ActorSystem, val materializer:
   //
   //  }
 
-  def start() = consumeOnce()
+  def start() = consume()
 
   def stop() = {}
 
-  def consumeOnce(noReply: Boolean = false): Future[Done] = {
+  def consume(noReply: Boolean = false): Future[Done] = {
     val amqpSink = if (noReply) Sink.ignore else AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider)) // declare a reply to Sink
     amqpSource.mapAsync(4) { cm =>
       cm.ack()

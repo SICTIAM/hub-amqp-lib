@@ -40,7 +40,7 @@ abstract class AmqpBasicConsumer(val queueName: String, val serviceName: String,
     * @param nbMsgToTake the number of messages to consume from the queue
     * @return a future collection of messages
     */
-  override def consumeOnce(nbMsgToTake: Long, noReply: Boolean): Future[Done] = amqpSource.take(nbMsgToTake).map(msg => onMessage(msg)).runWith(Sink.ignore)
+  override def consume(nbMsgToTake: Long, noReply: Boolean): Future[Done] = amqpSource.take(nbMsgToTake).map(msg => onMessage(msg)).runWith(Sink.ignore)
 
 
   /*

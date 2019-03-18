@@ -72,7 +72,7 @@ class AmqpRpcTaskSpec extends AmqpSpec {
 
     "consume a topic" in {
       val futureResult = producer.publish(topicName, messages)
-      task.consumeOnce()
+      task.consume()
       futureResult.futureValue shouldBe Done
       processBuffer.size shouldEqual messages.length
       replyBuffer.size shouldEqual messages.length

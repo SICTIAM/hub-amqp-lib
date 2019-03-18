@@ -38,7 +38,7 @@ abstract class AmqpRpcConsumer(val queueName: String, val serviceName: String, o
 
   lazy val amqpSource = AmqpSource.committableSource(sourceSettings, bufferSize = prefetchCount) // declare a basic consumer
 
-  override def consumeOnce(noReply: Boolean = false): Future[Done] = {
+  override def consume(noReply: Boolean = false): Future[Done] = {
     val amqpSink = if (noReply) Sink.ignore else AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider)) // declare a reply to Sink
     amqpSource.mapAsync(4) { cm =>
       cm.ack()
