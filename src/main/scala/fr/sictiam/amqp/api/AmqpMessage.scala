@@ -17,6 +17,9 @@
  */
 package fr.sictiam.amqp.api
 
+import akka.stream.alpakka.amqp.{IncomingMessage, OutgoingMessage}
+import akka.util.ByteString
+import fr.sictiam.exceptions.MessageParsingException
 import play.api.libs.json.{Format, JsObject, JsValue, Json}
 
 /**
@@ -32,6 +35,15 @@ case class AmqpMessage(val headers: Map[String, JsValue], val body: JsValue) {
     "headers" -> Json.toJson(headers),
     "body" -> body
   )
+
+  def toIncomingMessage(): IncomingMessage = {
+    IncomingMessage(ByteString(this.toString), null, null)
+  }
+
+  def toOutgoingMessage(): OutgoingMessage = {
+    OutgoingMessage(ByteString(this.toString), false, false)
+  }
+
 }
 
 object AmqpMessage {
@@ -42,4 +54,9 @@ object AmqpMessage {
 
   def parse(s: String): AmqpMessage = Json.parse(s).as[AmqpMessage]
 
+  def apply(im: IncomingMessage): AmqpMessage = {
+    val parsing = Json.parse(im.bytes.utf8String).validate[AmqpMessage]
+    if (parsing.isSuccess) parsing.get
+    else throw new MessageParsingException("Unable to parse the message", null)
+  }
 }
