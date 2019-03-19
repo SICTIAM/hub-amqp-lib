@@ -62,7 +62,9 @@ class AmqpRpcController(val serviceName: String)(implicit val system: ActorSyste
     val futureStart = Future.sequence(tasks.values.map(t => t.start()).toSeq)
     futureStart onComplete {
       case Success(_) => logger.info(s"""Service "$serviceName" started.""")
-      case Failure(error) => logger.error(s"""Service "$serviceName" an error occured during startup. Exiting.""", error)
+      case Failure(error) => {
+        logger.error(s"""Service "$serviceName" an error occured during startup. Exiting.""", error)
+      }
     }
     futureStart
   }
@@ -70,10 +72,10 @@ class AmqpRpcController(val serviceName: String)(implicit val system: ActorSyste
   def shutdown: Future[Terminated] = {
     logger.info(s"""Service "$serviceName" is shutting down...""")
     listeners.foreach(l => l.onShutdown())
+    tasks.values.foreach(t => t.stop())
     val futureClosing = system.terminate()
     futureClosing onComplete {
       case Success(_) => {
-        tasks.values.foreach(t => t.stop())
         logger.info(s"""Service "$serviceName" exited successfully.""")
       }
       case Failure(error) => logger.error("Shutdown error", error)

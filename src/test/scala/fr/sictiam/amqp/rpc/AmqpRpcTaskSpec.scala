@@ -77,5 +77,9 @@ class AmqpRpcTaskSpec extends AmqpSpec {
       processBuffer.size shouldEqual messages.length
       replyBuffer.size shouldEqual messages.length
     }
+
+    "stop gracefully" in {
+      task.stop()
+    }
   }
 }

@@ -19,10 +19,10 @@ package fr.sictiam.amqp.api.rpc
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.alpakka.amqp._
 import akka.stream.alpakka.amqp.scaladsl.{AmqpSink, AmqpSource}
 import akka.stream.scaladsl.Sink
+import akka.stream.{ActorMaterializer, KillSwitches}
 import fr.sictiam.amqp.api.{AmqpGenericRpcConsumer, Topic}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,6 +38,7 @@ abstract class AmqpRpcTask()(implicit val system: ActorSystem, val materializer:
   val exchangeName: String
   val serviceName: String = s"[$topic] RPC Task"
   lazy val amqpSource = AmqpSource.committableSource(sourceSettings, bufferSize = prefetchCount) // declare a basic consumer
+  val killSwitch = KillSwitches.shared(s"serviceName-kill-switch")
 
   //  lazy val restartSrc = RestartSource.withBackoff(100 milliseconds, AmqpClientConfiguration.consumeInterval milliseconds, 0.2) { () => amqpSource }
 
@@ -54,11 +55,16 @@ abstract class AmqpRpcTask()(implicit val system: ActorSystem, val materializer:
 
   def start() = consume()
 
-  def stop() = {}
+  def stop() = {
+    logger.debug(s"Gracefully closing $serviceName.")
+    killSwitch.shutdown()
+  }
 
   def consume(noReply: Boolean = false): Future[Done] = {
     val amqpSink = if (noReply) Sink.ignore else AmqpSink.replyTo(AmqpReplyToSinkSettings(connectionProvider)) // declare a reply to Sink
-    amqpSource.mapAsync(4) { cm =>
+    amqpSource.
+      via(killSwitch.flow)
+      .mapAsync(4) { cm =>
       cm.ack()
       onMessage(cm.message, topic)
     }.runWith(amqpSink)
