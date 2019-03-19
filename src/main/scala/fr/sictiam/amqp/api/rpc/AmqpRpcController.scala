@@ -19,7 +19,7 @@ package fr.sictiam.amqp.api.rpc
 
 import akka.Done
 import akka.actor.{ActorSystem, Terminated}
-import akka.stream.ActorMaterializer
+import akka.stream.{AbruptTerminationException, ActorMaterializer}
 import com.typesafe.scalalogging.LazyLogging
 import fr.sictiam.amqp.api.AmqpClientConfiguration
 import fr.sictiam.common.ServiceListener
@@ -63,7 +63,10 @@ class AmqpRpcController(val serviceName: String)(implicit val system: ActorSyste
     futureStart onComplete {
       case Success(_) => logger.info(s"""Service "$serviceName" started.""")
       case Failure(error) => {
-        logger.error(s"""Service "$serviceName" an error occured during startup. Exiting.""", error)
+        error match {
+          case _: AbruptTerminationException =>
+          case _: Throwable => logger.error(s"""Service "$serviceName" an error occured during startup. Exiting.""", error)
+        }
       }
     }
     futureStart
