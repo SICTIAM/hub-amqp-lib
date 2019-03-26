@@ -41,8 +41,8 @@ case class AmqpMessage(val headers: Map[String, JsValue], val body: JsValue) {
     IncomingMessage(ByteString(this.toString), null, null)
   }
 
-  def toOutgoingMessage(immediate: Boolean, mandatory: Boolean, properties: BasicProperties): OutgoingMessage = {
-    OutgoingMessage(ByteString(this.toString), immediate, mandatory).withProperties(properties)
+  def toOutgoingMessage(properties: BasicProperties): OutgoingMessage = {
+    OutgoingMessage(ByteString(this.toString), false, false).withProperties(properties)
   }
 
 }
