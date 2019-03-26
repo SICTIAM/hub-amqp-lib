@@ -60,11 +60,14 @@ class AmqpRpcTaskSpec extends AmqpSpec {
     }
 
     val task = new AmqpRpcTask {
+
+      override val serviceName: String = "TESTING Task"
       override val topic: String = topicName
       override val exchangeName: String = exchange
 
       override def onMessage(msg: IncomingMessage, params: String*)(implicit ec: ExecutionContext): Future[OutgoingMessage] = {
         println(s"$serviceName / Message received : ${msg.bytes.utf8String}")
+        println(msg.properties.getReplyTo)
         processBuffer += msg.bytes.utf8String
         Future(OutgoingMessage(ByteString(s"Reponse received from $serviceName"), false, false).withProperties(msg.properties))(ec)
       }

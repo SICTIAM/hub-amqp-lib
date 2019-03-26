@@ -44,7 +44,6 @@ trait AmqpConfiguration {
   lazy val prefetchCount: Int = AmqpClientConfiguration.prefetchCount
   lazy val automaticRecoveryEnabled: Boolean = AmqpClientConfiguration.automaticRecoveryEnabled
   lazy val topologyRecoveryEnabled: Boolean = AmqpClientConfiguration.topologyRecoveryEnabled
-  lazy val timeout: Int = AmqpClientConfiguration.timeout
 }
 
 trait AmqpGenericAgent extends GenericService with AmqpConfiguration {
