@@ -65,7 +65,8 @@ class AmqpRpcController(val serviceName: String)(implicit val system: ActorSyste
       case Failure(error) => {
         error match {
           case _: AbruptTerminationException =>
-          case _: Throwable => logger.error(s"""Service "$serviceName" an error occured during startup. Exiting.""", error)
+          case _: Throwable =>
+            logger.error(s"""Service "$serviceName" an error occured during the processing of a message.""", error)
         }
       }
     }
