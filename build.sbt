@@ -2,7 +2,7 @@ import Dependencies._
 import sbt.url
 
 ThisBuild / scalaVersion := "2.12.8"
-ThisBuild / version := "0.1.2-SNAPSHOT"
+ThisBuild / version := "0.1.4-SNAPSHOT"
 ThisBuild / organization := "fr.sictiam"
 ThisBuild / organizationName := "SICTIAM"
 
