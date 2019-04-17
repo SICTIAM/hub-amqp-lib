@@ -38,8 +38,14 @@ class AmqpRpcController(val serviceName: String)(implicit val system: ActorSyste
   var listeners = mutable.Buffer[ServiceListener]()
   var tasks = mutable.HashMap[String, AmqpRpcTask]()
 
+  var isVerbose:Boolean=true
+
+  def unmute() = isVerbose=true
+
+  def mute() = isVerbose=false
+
   def registerListener(listener: ServiceListener) = {
-    logger.info(s"""Service "$serviceName" registered a listener (${listener.getClass.getSimpleName}).""")
+    if(isVerbose) logger.info(s"""Service "$serviceName" registered a listener (${listener.getClass.getSimpleName}).""")
     listeners += listener
   }
 
@@ -48,7 +54,7 @@ class AmqpRpcController(val serviceName: String)(implicit val system: ActorSyste
   }
 
   def registerTask(topic: String, task: AmqpRpcTask) = {
-    logger.info(s"""Service "$serviceName" registered a task (${task.getClass.getSimpleName}).""")
+    if(isVerbose) logger.info(s"""Service "$serviceName" registered a task (${task.getClass.getSimpleName}).""")
     tasks += (topic -> task)
   }
 
@@ -57,7 +63,7 @@ class AmqpRpcController(val serviceName: String)(implicit val system: ActorSyste
   }
 
   def start: Future[Seq[Done]] = {
-    logger.info(s"""Service "$serviceName" listening on: [rabbitmq://${AmqpClientConfiguration.user}:${AmqpClientConfiguration.pwd.map(_ => "*").mkString("")}@${AmqpClientConfiguration.host}:${AmqpClientConfiguration.port}]""")
+    if(isVerbose) logger.info(s"""Service "$serviceName" listening on: [rabbitmq://${AmqpClientConfiguration.user}:${AmqpClientConfiguration.pwd.map(_ => "*").mkString("")}@${AmqpClientConfiguration.host}:${AmqpClientConfiguration.port}]""")
     listeners.foreach(l => l.onStartup())
     val futureStart = Future.sequence(tasks.values.map(t => t.start()).toSeq)
     futureStart onComplete {
@@ -66,7 +72,7 @@ class AmqpRpcController(val serviceName: String)(implicit val system: ActorSyste
         error match {
           case _: AbruptTerminationException =>
           case _: Throwable =>
-            logger.error(s"""Service "$serviceName" an error occured during the processing of a message.""", error)
+            if(isVerbose) logger.error(s"""Service "$serviceName" an error occured during the processing of a message.""", error)
         }
       }
     }
@@ -74,15 +80,15 @@ class AmqpRpcController(val serviceName: String)(implicit val system: ActorSyste
   }
 
   def shutdown: Future[Terminated] = {
-    logger.info(s"""Service "$serviceName" is shutting down...""")
+    if(isVerbose) logger.info(s"""Service "$serviceName" is shutting down...""")
     listeners.foreach(l => l.onShutdown())
     tasks.values.foreach(t => t.stop())
     val futureClosing = system.terminate()
     futureClosing onComplete {
       case Success(_) => {
-        logger.info(s"""Service "$serviceName" exited successfully.""")
+        if(isVerbose) logger.info(s"""Service "$serviceName" exited successfully.""")
       }
-      case Failure(error) => logger.error("Shutdown error", error)
+      case Failure(error) => if(isVerbose) logger.error("Shutdown error", error)
     }
     futureClosing
   }
